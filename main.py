@@ -69,7 +69,10 @@ def get_info(url, headers):
     ).text
 
     # Parse the html.
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(
+        markup=html,
+        features="html.parser"
+    )
 
     # Get the video title.
     title = soup.find(
@@ -98,30 +101,30 @@ def get_info(url, headers):
             name="ul",
             class_="tag-area"
     ).find_all(name="li"):
-        tags.append(tag_li.text.strip())
-    # Remove empty strings.
-    tags = list(filter(
-        bool,
-        tags
-    ))
+        tag = tag_li.text.strip()
+        # It's really a tag if it is not an empty string.
+        if len(tag) != 0:
+            tags.append(tag)
     print(f"[tags] {tags}")
 
     # Get the video pages.
-    window_initial_state_script = ""
+    window_initial_state_script = ""  # The script contains page info.
     for script in soup.find_all(name="script"):
         try:
             if "window.__INITIAL_STATE__" in script.string and "pages" in script.string:
-                window_initial_state_script = script.string[25:]
+                window_initial_state_script = script.string
                 break
         except TypeError:
             pass
-    window_initial_state_script = re.compile(r"(\{.*\});\(function\(\)\{").search(window_initial_state_script).group(1)
-    # Convert the string to json.
-    initial_state_dict = json.loads(s=window_initial_state_script)
-    # Construct the page dict.
-    pages = initial_state_dict["videoData"]["pages"]
+    # Extract the json from the script.
+    pattern = re.compile(pattern=r"(\{.*\});")
+    window_initial_state_json = pattern.search(string=window_initial_state_script).group(1)
+    # Convert the json to dict.
+    window_initial_state_dict = json.loads(s=window_initial_state_json)
+    # Extract page info.
+    pages = window_initial_state_dict["videoData"]["pages"]
     pages = {
-        page_dict['page']: page_dict['part']
+        int(page_dict['page']): page_dict['part']
         for page_dict in pages
     }
     for page_id, page_name in pages.items():
@@ -156,23 +159,30 @@ def get_content(url, p, headers):
     ).text
 
     # parse the html.
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(
+        markup=html,
+        features="html.parser"
+    )
 
     # Get the urls of the audio & video.
-    window_playinfo_script = ""
-    for script in soup.find_all("script"):
+    window_playinfo_script = ""  # The script contains the audio & video urls.
+    for script in soup.find_all(name="script"):
         try:
             if "window.__playinfo__" in script.string and "baseUrl" in script.string:
-                window_playinfo_script = script.string[20:]
+                window_playinfo_script = script.string
                 break
         except TypeError:
             pass
-    playinfo_dict = json.loads(s=window_playinfo_script)
+    # Extract the json from the script.
+    pattern = re.compile(pattern=r"(\{.*\})")
+    window_playinfo_json = pattern.search(string=window_playinfo_script).group(0)
+    # Convert the json to dict.
+    window_playinfo_dict = json.loads(s=window_playinfo_json)
     # Video url.
-    video_url = playinfo_dict["data"]["dash"]["video"][0]["baseUrl"]
-    print(f"[video_url]: {video_url}")
+    video_url = window_playinfo_dict["data"]["dash"]["video"][0]["baseUrl"]
     # Audio url.
-    audio_url = playinfo_dict["data"]["dash"]["audio"][0]["baseUrl"]
+    audio_url = window_playinfo_dict["data"]["dash"]["audio"][0]["baseUrl"]
+    print(f"[video_url]: {video_url}")
     print(f"[audio_url]: {audio_url}")
 
     # Get the content of the audio.
@@ -238,5 +248,5 @@ def main(bv_id):
 
 if __name__ == '__main__':
     bv_id = "BV19B4y1W76i"
-    
+
     main(bv_id=bv_id)
