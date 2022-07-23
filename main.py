@@ -51,7 +51,7 @@ def request(url, headers, timeout=60):
 
         return r
     except:
-        return None
+        return ""
 
 
 def get_info(url, headers):
@@ -59,7 +59,7 @@ def get_info(url, headers):
 
     :param url: Url of the video.
     :param headers: Headers for sending requests.
-    :return: Video info, including title, date, introduction, tags and page list, wrapped into a dict.
+    :return: Video info, including title, date, introduction, tags and page list. They are wrapped into a dict.
     """
 
     # Obtain the html text of the url.
@@ -79,21 +79,18 @@ def get_info(url, headers):
         name="h1",
         class_="video-title"
     ).text.strip()
-    print(f"[title]: {title}")
 
     # Get the video date.
     date = soup.find(
         name="span",
         class_="pudate"
     ).text.strip()
-    print(f"[date] {date}")
 
     # Get the video introduction.
     intro = soup.find(
         name="span",
         class_="desc-info-text"
     ).text.strip()
-    print(f"[intro]\n{intro}")
 
     # Get the video tags.
     tags = []
@@ -105,7 +102,6 @@ def get_info(url, headers):
         # It's really a tag if it is not an empty string.
         if len(tag) != 0:
             tags.append(tag)
-    print(f"[tags] {tags}")
 
     # Get the video pages.
     window_initial_state_script = ""  # The script contains page info.
@@ -127,8 +123,6 @@ def get_info(url, headers):
         int(page_dict['page']): page_dict['part']
         for page_dict in pages
     }
-    for page_id, page_name in pages.items():
-        print(f"[p{page_id}]: {page_name}")
 
     return {
         "title": title,
@@ -212,6 +206,8 @@ def main(bv_id):
         url=url,
         headers=headers,
     )
+    for k, v in info.items():
+        print(f"[{k}]: {v}")
 
     for p in range(1, 5 + 1):  # Download the video content of the first 5 pages.
         content = get_content(
@@ -228,17 +224,26 @@ def main(bv_id):
         )
 
         # Write the audio.
-        fp_audio = os.path.join(dp_content, f"p{p} {info['pages'][p]}_audio.m4s")
+        fp_audio = os.path.join(
+            dp_content,
+            f"p{p} {info['pages'][p]}_audio.m4s"
+        )
         with open(fp_audio, "wb") as f_audio:
             f_audio.write(content["audio_content"])
 
         # Write the video.
-        fp_video = os.path.join(dp_content, f"p{p} {info['pages'][p]}_video.m4s")
+        fp_video = os.path.join(
+            dp_content,
+            f"p{p} {info['pages'][p]}_video.m4s"
+        )
         with open(fp_video, "wb") as f_video:
             f_video.write(content["video_content"])
 
         # Merge the audio and video into a mp4 file.
-        fp_mp4 = os.path.join(dp_content, f"p{p} {info['pages'][p]}.mp4")
+        fp_mp4 = os.path.join(
+            dp_content,
+            f"p{p} {info['pages'][p]}.mp4"
+        )
         os.system(f'ffmpeg -y -i "{fp_video}" -i "{fp_audio}" -codec copy "{fp_mp4}"', )
 
         # Remove the audio and video file.
