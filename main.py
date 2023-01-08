@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import re
@@ -202,6 +203,7 @@ def main(bv_id):
     url = construct_url(bv_id=bv_id)
     headers = construct_headers(url=url)
 
+    # Obtain title, date, intro, tags, and page info.
     info = get_info(
         url=url,
         headers=headers,
@@ -209,7 +211,8 @@ def main(bv_id):
     for k, v in info.items():
         print(f"[{k}]: {v}")
 
-    for p in range(1, 5 + 1):  # Download the video content of the first 5 pages.
+    # Obtain and save video content.
+    for p, p_title in info["pages"].items():
         content = get_content(
             url=url,
             p=p,
@@ -226,7 +229,7 @@ def main(bv_id):
         # Write the audio.
         fp_audio = os.path.join(
             dp_content,
-            f"p{p} {info['pages'][p]}_audio.m4s"
+            f"p{p} {p_title}_audio.m4s"
         )
         with open(fp_audio, "wb") as f_audio:
             f_audio.write(content["audio_content"])
@@ -234,15 +237,15 @@ def main(bv_id):
         # Write the video.
         fp_video = os.path.join(
             dp_content,
-            f"p{p} {info['pages'][p]}_video.m4s"
+            f"p{p} {p_title}_video.m4s"
         )
         with open(fp_video, "wb") as f_video:
             f_video.write(content["video_content"])
 
-        # Merge the audio and video into a mp4 file.
+        # Merge the audio and video into an mp4 file.
         fp_mp4 = os.path.join(
             dp_content,
-            f"p{p} {info['pages'][p]}.mp4"
+            f"p{p} {p_title}.mp4"
         )
         os.system(f'ffmpeg -y -i "{fp_video}" -i "{fp_audio}" -codec copy "{fp_mp4}"', )
 
@@ -252,6 +255,8 @@ def main(bv_id):
 
 
 if __name__ == '__main__':
-    bv_id = "BV19B4y1W76i"
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bid", required=True, help="ID of the video.")
+    args = parser.parse_args()
 
-    main(bv_id=bv_id)
+    main(bv_id=args.bid)
