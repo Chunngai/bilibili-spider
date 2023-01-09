@@ -269,17 +269,21 @@ def main(bv_id: str = None, url: str = None):
 
     # Obtain and save video content.
     for p, p_title in info["pages"].items():
-        content = get_content(
-            url=url,
-            p=p,
-            headers=headers,
-        )
+        try:
+            content = get_content(
+                url=url,
+                p=p,
+                headers=headers,
+            )
 
-        save_content(
-            content=content,
-            dp_root=dp_content,
-            filename=f"p{p} {p_title}"
-        )
+            save_content(
+                content=content,
+                dp_root=dp_content,
+                filename=f"p{p} {p_title}"
+            )
+        except:
+            print(f"Failed to fetch content of page {p}")
+            continue
 
 
 if __name__ == '__main__':
