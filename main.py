@@ -7,7 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 
 
-def construct_url(bv_id):
+def construct_url(bv_id: str) -> str:
     """Construct a url with the given bv id.
 
     :param bv_id: BV id.
@@ -17,7 +17,17 @@ def construct_url(bv_id):
     return f"https://www.bilibili.com/video/{bv_id}"
 
 
-def construct_headers(url):
+def clean_url(url: str) -> str:
+    """Extract https://www.bilibili.com/video/BID from the url.
+
+    :param url: Raw url.
+    :return: Cleaned url.
+    """
+
+    return re.compile(r"https://www.bilibili.com/video/.+?(/|$)").search(url).group(0)
+
+
+def construct_headers(url: str) -> dict:
     """Construct headers with the given url.
 
     :param url: Url needed to construct the headers.
@@ -30,7 +40,7 @@ def construct_headers(url):
     }
 
 
-def request(url, headers, timeout=60):
+def request(url: str, headers: dict, timeout: int = 60) -> requests.Response:
     """Send a request.
 
     :param url: The url to which the request is sent.
@@ -52,10 +62,10 @@ def request(url, headers, timeout=60):
 
         return r
     except:
-        return ""
+        return requests.Response()
 
 
-def get_info(url, headers):
+def get_info(url: str, headers: dict) -> dict:
     """Get video info.
 
     :param url: Url of the video.
@@ -134,7 +144,7 @@ def get_info(url, headers):
     }
 
 
-def get_content(url, p, headers):
+def get_content(url: str, p: int, headers: dict) -> dict:
     """Get video content (audio & video).
 
     :param url: Url of the video.
@@ -199,8 +209,47 @@ def get_content(url, p, headers):
     }
 
 
-def main(bv_id):
-    url = construct_url(bv_id=bv_id)
+def save_content(content: dict, dp_root: str, filename: str):
+    """Save video content (mp4 format)
+
+    :param content: Obtained video content (audio url, audio content, video url, video content).
+    :param dp_root: Root directory for saving videos.
+    :param filename: Filename of the page.
+    """
+
+    # Write the audio.
+    fp_audio = os.path.join(
+        dp_root,
+        f"{filename}_audio.m4s"
+    )
+    with open(fp_audio, "wb") as f_audio:
+        f_audio.write(content["audio_content"])
+
+    # Write the video.
+    fp_video = os.path.join(
+        dp_root,
+        f"{filename}_video.m4s"
+    )
+    with open(fp_video, "wb") as f_video:
+        f_video.write(content["video_content"])
+
+    # Merge the audio and video into an mp4 file.
+    fp_mp4 = os.path.join(
+        dp_root,
+        f"{filename}.mp4"
+    )
+    os.system(f'ffmpeg -y -i "{fp_video}" -i "{fp_audio}" -codec copy "{fp_mp4}"', )
+
+    # Remove the audio and video file.
+    os.remove(fp_audio)
+    os.remove(fp_video)
+
+
+def main(bv_id: str = None, url: str = None):
+    if url is None:
+        url = construct_url(bv_id=bv_id)
+    else:
+        url = clean_url(url=url)
     headers = construct_headers(url=url)
 
     # Obtain title, date, intro, tags, and page info.
@@ -211,6 +260,13 @@ def main(bv_id):
     for k, v in info.items():
         print(f"[{k}]: {v}")
 
+    # Make a directory for saving the content.
+    dp_content = os.path.join("videos", f"{info['title']}")
+    os.makedirs(
+        name=dp_content,
+        exist_ok=True
+    )
+
     # Obtain and save video content.
     for p, p_title in info["pages"].items():
         content = get_content(
@@ -219,44 +275,22 @@ def main(bv_id):
             headers=headers,
         )
 
-        # Make a directory for saving the content.
-        dp_content = os.path.join("data", f"{info['title']}")
-        os.makedirs(
-            name=dp_content,
-            exist_ok=True
+        save_content(
+            content=content,
+            dp_root=dp_content,
+            filename=f"p{p} {p_title}"
         )
-
-        # Write the audio.
-        fp_audio = os.path.join(
-            dp_content,
-            f"p{p} {p_title}_audio.m4s"
-        )
-        with open(fp_audio, "wb") as f_audio:
-            f_audio.write(content["audio_content"])
-
-        # Write the video.
-        fp_video = os.path.join(
-            dp_content,
-            f"p{p} {p_title}_video.m4s"
-        )
-        with open(fp_video, "wb") as f_video:
-            f_video.write(content["video_content"])
-
-        # Merge the audio and video into an mp4 file.
-        fp_mp4 = os.path.join(
-            dp_content,
-            f"p{p} {p_title}.mp4"
-        )
-        os.system(f'ffmpeg -y -i "{fp_video}" -i "{fp_audio}" -codec copy "{fp_mp4}"', )
-
-        # Remove the audio and video file.
-        os.remove(fp_audio)
-        os.remove(fp_video)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--bid", required=True, help="ID of the video.")
+    parser.add_argument("--bid", help="ID of the video.")
+    parser.add_argument("--url", help="Url of the video.")
     args = parser.parse_args()
 
-    main(bv_id=args.bid)
+    assert args.bid is not None or args.url is not None
+
+    main(
+        bv_id=args.bid,
+        url=args.url,
+    )
